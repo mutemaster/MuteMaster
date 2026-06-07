@@ -1,0 +1,144 @@
+name: MuteMaster
+
+options:
+  bundleIdPrefix: app.mutemaster
+  createIntermediateGroups: true
+  deploymentTarget:
+    macOS: "14.0"
+
+packages:
+  # Vendored locally (MIT) to avoid SwiftPM's remote bare-repo cache, which clashes with
+  # git 2.50 + Xcode 26. Source lives in Vendor/KeyboardShortcuts.
+  KeyboardShortcuts:
+    path: Vendor/KeyboardShortcuts
+
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    # Ad-hoc signing for local development. See Scripts/sign_and_install.sh.
+    CODE_SIGN_STYLE: Manual
+    CODE_SIGN_IDENTITY: "-"
+    CODE_SIGNING_REQUIRED: "NO"
+    CODE_SIGNING_ALLOWED: "YES"
+
+targets:
+
+  # ---------------------------------------------------------------------------
+  # Core Audio HAL driver (AudioServerPlugIn) — a .driver bundle.
+  # ---------------------------------------------------------------------------
+  MuteMasterDriver:
+    type: bundle
+    platform: macOS
+    sources:
+      - path: MuteMasterDriver
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.mutemaster.driver
+        WRAPPER_EXTENSION: driver
+        GENERATE_INFOPLIST_FILE: "NO"
+        INFOPLIST_FILE: MuteMasterDriver/Info.plist
+        SKIP_INSTALL: "YES"
+        DEAD_CODE_STRIPPING: "NO"
+
+  # ---------------------------------------------------------------------------
+  # Privileged helper daemon (installs the driver, restarts coreaudiod).
+  # ---------------------------------------------------------------------------
+  MuteMasterHelper:
+    type: tool
+    platform: macOS
+    sources:
+      - path: MuteMasterHelper/main.swift
+      - path: MuteMasterHelper/HelperService.swift
+      - path: Shared/HelperProtocol.swift
+      - path: Shared/Identifiers.swift
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.mutemaster.helper
+        PRODUCT_NAME: MuteMasterHelper
+        CODE_SIGN_ENTITLEMENTS: MuteMasterHelper/MuteMasterHelper.entitlements
+
+  # ---------------------------------------------------------------------------
+  # The menu-bar app.
+  # ---------------------------------------------------------------------------
+  MuteMasterApp:
+    type: application
+    platform: macOS
+    sources:
+      - path: MuteMasterApp
+        excludes:
+          - "MuteMasterApp-Bridging.h"
+      - path: MuteMasterApp/MuteMasterApp-Bridging.h
+      - path: Shared/ToneDSP.swift
+      - path: Shared/Identifiers.swift
+      - path: Shared/HelperProtocol.swift
+      - path: Shared/ZMRingBuffer.c
+      - path: Shared/ZMRingBuffer.h
+      - path: THIRD-PARTY-NOTICES.md
+        buildPhase: resources
+    dependencies:
+      - package: KeyboardShortcuts
+      - target: MuteMasterDriver
+        embed: true
+        copyFiles:
+          destination: resources
+      - target: MuteMasterHelper
+        embed: false
+        link: false
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.mutemaster
+        PRODUCT_NAME: MuteMasterApp
+        GENERATE_INFOPLIST_FILE: "NO"
+        INFOPLIST_FILE: MuteMasterApp/Info.plist
+        CODE_SIGN_ENTITLEMENTS: MuteMasterApp/MuteMasterApp.entitlements
+        SWIFT_OBJC_BRIDGING_HEADER: MuteMasterApp/MuteMasterApp-Bridging.h
+        HEADER_SEARCH_PATHS:
+          - "$(SRCROOT)/Shared"
+        ENABLE_HARDENED_RUNTIME: "YES"
+    postBuildScripts:
+      - name: Embed helper executable and LaunchDaemons plist
+        basedOnDependencyAnalysis: false
+        script: |
+          set -e
+          CONTENTS="$BUILT_PRODUCTS_DIR/$CONTENTS_FOLDER_PATH"
+          # Privileged helper goes in Contents/MacOS (matches the plist's BundleProgram path).
+          mkdir -p "$CONTENTS/MacOS"
+          cp "$BUILT_PRODUCTS_DIR/MuteMasterHelper" "$CONTENTS/MacOS/MuteMasterHelper"
+          # launchd plist read by SMAppService.daemon(plistName:). Clear any stale plists first so a
+          # renamed plist never leaves a straggler in an incremental build.
+          mkdir -p "$CONTENTS/Library/LaunchDaemons"
+          rm -f "$CONTENTS/Library/LaunchDaemons/"*.plist
+          cp "$SRCROOT/MuteMasterHelper/app.mutemaster.helper.plist" "$CONTENTS/Library/LaunchDaemons/"
+
+  # ---------------------------------------------------------------------------
+  # Tests: pure-DSP unit tests + Core Audio integration tests (self-skip if the
+  # driver isn't installed).
+  # ---------------------------------------------------------------------------
+  MuteMasterTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: MuteMasterTests
+    dependencies:
+      - target: MuteMasterApp
+      - package: KeyboardShortcuts
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.mutemaster.tests
+        GENERATE_INFOPLIST_FILE: "YES"
+
+schemes:
+  MuteMaster:
+    build:
+      targets:
+        MuteMasterApp: all
+        MuteMasterDriver: all
+        MuteMasterHelper: all
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - MuteMasterTests

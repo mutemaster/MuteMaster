@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Info.plist for the MuteMasterDriver AudioServerPlugIn bundle.
+
+  The two keys that make coreaudiod load this as an audio driver:
+    • CFPlugInFactories : maps a factory UUID -> the C function that returns our driver interface.
+    • CFPlugInTypes     : maps the AudioServerPlugIn type UUID (443ABAB8-...) -> our factory UUID.
+
+  If either UUID is wrong, or the function name doesn't match an exported symbol, coreaudiod
+  silently refuses to load the bundle and the devices never appear. See the M0 gate in the plan.
+-->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleDevelopmentRegion</key>
+    <string>en</string>
+    <key>CFBundleExecutable</key>
+    <string>MuteMasterDriver</string>
+    <key>CFBundleIdentifier</key>
+    <string>app.mutemaster.driver</string>
+    <key>CFBundleInfoDictionaryVersion</key>
+    <string>6.0</string>
+    <key>CFBundleName</key>
+    <string>MuteMasterDriver</string>
+    <key>CFBundlePackageType</key>
+    <string>BNDL</string>
+    <key>CFBundleShortVersionString</key>
+    <string>0.1.0</string>
+    <key>CFBundleVersion</key>
+    <string>1</string>
+    <key>CFPlugInFactories</key>
+    <dict>
+        <key>10C4B9DE-3085-4BED-8BFB-05822A775219</key>
+        <string>MuteMaster_Create</string>
+    </dict>
+    <key>CFPlugInTypes</key>
+    <dict>
+        <key>443ABAB8-E7B3-491A-B985-BEB9187030DB</key>
+        <array>
+            <string>10C4B9DE-3085-4BED-8BFB-05822A775219</string>
+        </array>
+    </dict>
+</dict>
+</plist>

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Local-dev entitlements. App Sandbox is OFF: loading/copying a HAL plug-in into /Library and
+  enumerating arbitrary Core Audio devices is incompatible with a clean sandbox. The hardened
+  runtime audio-input entitlement lets us capture the real microphone.
+  For Mac App Store distribution this would change substantially (see README/M6).
+-->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>com.apple.security.device.audio-input</key>
+    <true/>
+</dict>
+</plist>

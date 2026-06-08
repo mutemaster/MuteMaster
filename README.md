@@ -138,6 +138,35 @@ The privileged helper isn't removed by the script — to deregister it, remove *
 system_profiler SPAudioDataType | grep -i Mutable   # prints nothing once uninstalled
 ```
 
+### 7. Install on another Mac (portable build)
+To run MuteMaster on **another Mac you control** without setting up notarization, build a portable
+package:
+```sh
+Scripts/package-portable.sh      # → build/MuteMaster-portable.zip
+```
+This builds the app, ad-hoc signs the driver, and zips a self-contained payload:
+
+| In the zip | Purpose |
+|------------|---------|
+| `MuteMasterApp.app` | the app |
+| `MuteMasterDriver.driver` | the audio driver |
+| `install.sh` | run on the target: strips the quarantine flag, installs the driver to `/Library/Audio/Plug-Ins/HAL`, restarts coreaudiod, copies the app to `/Applications`, and verifies the devices appeared |
+| `INSTALL.txt` | the same steps in plain English |
+
+Copy the zip to the target Mac, then:
+```sh
+unzip MuteMaster-portable.zip
+bash MuteMaster-portable/install.sh      # prompts for your admin password (sudo)
+```
+Launch **MuteMaster** from `/Applications` — on first launch, right-click ▸ **Open** if Gatekeeper
+warns. The only thing that makes this work without notarization is removing the `com.apple.quarantine`
+flag (which `install.sh` does), so it's fine for **machines you own**.
+
+> ⚠️ This ad-hoc, un-notarized build is for personal use only. **To distribute MuteMaster to other
+> people**, you need a Developer ID–signed, notarized `.pkg` instead — asking others to bypass
+> Gatekeeper isn't acceptable. If `coreaudiod` refuses the ad-hoc driver on the target's macOS
+> version, that's your signal the notarized path is required.
+
 ---
 
 ## How it works (short version)
